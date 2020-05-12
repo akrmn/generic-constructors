@@ -29,6 +29,11 @@ instance Constructors f => Constructors (D1 d f) where
   k :: forall x y. (D1 d f () -> x) -> (Q f x y -> y)
   k inj = k (inj . M1)
 
+instance Constructors V1 where
+  type Q V1 x y = y
+  k :: forall x y. (V1 () -> x) -> (y -> y)
+  k _ = id
+
 instance (Constructors f, Constructors g) => Constructors (f :+: g) where
   type Q (f :+: g) x y = Q f x (Q g x y)
   k :: forall x y. ((f :+: g) () -> x) -> (Q f x (Q g x y) -> y)
