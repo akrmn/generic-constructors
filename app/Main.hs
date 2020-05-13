@@ -1,15 +1,20 @@
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main
   ( main
   ) where
 
-import Constructors (constructors)
 import GHC.Generics
+import Data.Tagged
+
+import Constructors (constructors)
+import qualified Constructors.Tagged as Tagged (constructors)
 
 data Either4 a b c d
   = E4_1 a
@@ -37,3 +42,29 @@ main = do
 
   constructors @(Either4 Int Bool Char Double) \e1 e2 e3 e4 ->
     print [e1 3, e2 False, e3 'a', e4 3.14]
+
+  Tagged.constructors @(Int, Bool)
+    \(untag @"(,)" -> tup) ->
+      print [tup 3 False]
+
+  Tagged.constructors @[Int]
+    \(untag @"[]" -> nil) ->
+    \(untag @":" -> cons) ->
+      print [nil, cons 3 (cons 2 (cons 1 nil))]
+
+  Tagged.constructors @(Either Int Bool)
+    \(untag @"Left" -> left) ->
+    \(untag @"Right" -> right) ->
+      print [left 3, right False]
+
+  Tagged.constructors @(Maybe Int)
+    \(untag @"Nothing" -> nothing) ->
+    \(untag @"Just" -> just) ->
+      print [nothing, just 3]
+
+  Tagged.constructors @(Either4 Int Bool Char Double)
+    \(untag @"E4_1" -> e1) ->
+    \(untag @"E4_2" -> e2) ->
+    \(untag @"E4_3" -> e3) ->
+    \(untag @"E4_4" -> e4) ->
+      print [e1 3, e2 False, e3 'a', e4 3.14]

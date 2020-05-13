@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f8c7fbff3110b64198bcd5c73dcafa56721a493a361cc81d545fb058bc3035de
+-- hash: 40592a5595a661457e7b2b8313664aa28b053cc941bc41ed5050f86f94f85ae9
 
 name:           generic-constructors
 version:        0.1.0.0
@@ -28,12 +28,14 @@ source-repository head
 library
   exposed-modules:
       Constructors
+      Constructors.Tagged
   other-modules:
       Paths_generic_constructors
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
+    , tagged >=0.8 && <0.9
   default-language: Haskell2010
 
 executable generic-constructors-exe
@@ -46,4 +48,5 @@ executable generic-constructors-exe
   build-depends:
       base >=4.7 && <5
     , generic-constructors
+    , tagged >=0.8 && <0.9
   default-language: Haskell2010
