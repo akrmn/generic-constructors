@@ -45,6 +45,8 @@ data Foo = Bar | Baz
 
 module MyData.Gen
 
+import Constructors (constructors)
+
 genFoo :: Gen Foo
 genFoo = constructors @Foo \bar baz ->
   element [bar, baz]
@@ -59,3 +61,45 @@ when we decide to add `Qux`:
 
 the type of `constructors @Foo` will have changed, so the compiler will
 remind us to add an entry for `Qux` to `genFoo`.
+
+## Tagged
+
+It's very likely that when reading the above you thought "what if I
+accidentally transpose two constructors?" After all, the argument to
+`constructors` can call the constructors by any name.
+`Constructors.Tagged` offers a similar interface to `Constructors`, but
+unlike the plain functions provided by `Constructors.constructors`,
+`Constructors.Tagged.constructors` tags each of the functions with the name
+of the constructor. Continuing with the previous example, we can write:
+
+```haskell
+module MyData.Gen
+
+import Constructors.Tagged (constructors)
+import Data.Tagged (untag)
+
+genFoo :: Gen Foo
+genFoo = constructors @Foo
+  \(untag @"Bar" -> bar) ->
+  \(untag @"Baz" -> baz) ->
+    element [bar, baz]
+```
+
+This way, when the eventual addition of `Qux` comes along,
+
+```diff
+- data Foo = Bar | Baz
++ data Foo = Bar | Baz | Qux
+```
+
+the compiler will give a better error message:
+
+```
+<loc>: error:
+    • Couldn't match type ‘[Foo]’ with ‘Tagged "Qux" Foo -> [Foo]’
+      Expected type: Constructors.Tagged.Q (Rep Foo) Foo [Foo]
+        Actual type: Tagged "Bar" Foo -> Tagged "Baz" Foo -> [Foo]
+...
+```
+
+So it will be clear that the `Qux` constructor is what's missing.
