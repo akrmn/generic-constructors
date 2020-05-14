@@ -11,21 +11,26 @@ module than `Foo`:
 ```haskell
 module MyData
 
-import Hedgehog.Gen (Gen)
-
-data Foo = Bar | Baz
+data Foo = Bar Bool Double | Baz Int
 
 ...
 
 module MyData.Gen
 
+import           Hedgehog       (Gen)
+import qualified Hedgehog.Gen   as Gen
+import qualified Hedgehog.Range as Range
+
 genFoo :: Gen Foo
-genFoo = element [Bar, Baz]
+genFoo = Gen.choice @Gen
+  [ Bar <$> Gen.bool_ <*> Gen.double (Range.linearFrac 0.0 1.0)
+  , Baz <$> Gen.int (Range.linear (-100) 100)
+  ]
 ```
 
 Consider that a new constructor `Qux` is added to `Foo`. Strictly speaking,
 there really shouldn't be an error anywhere, but there's an implicit assumption
-that `genFoo` should generate *all* sorts of `Foo`s, in particular, it should
+that `genFoo` should generate *all* sorts of `Foo`s; in particular, it should
 generate `Qux` values. In a large codebase, it's surprisingly easy to forget
 a change like this, and code depending on `genFoo` will never see a `Qux`,
 so the tests will miss a lot of branches.
@@ -35,10 +40,7 @@ If, instead, we had used `constructors` to define `genFoo`:
 ```haskell
 module MyData
 
-import Hedgehog.Gen (Gen)
-import GHC.Generics
-
-data Foo = Bar | Baz  
+data Foo = Bar Bool Double | Baz Int
   deriving (Generic)
 
 ...
@@ -47,16 +49,23 @@ module MyData.Gen
 
 import Constructors (constructors)
 
+import           Hedgehog       (Gen)
+import qualified Hedgehog.Gen   as Gen
+import qualified Hedgehog.Range as Range
+
 genFoo :: Gen Foo
 genFoo = constructors @Foo \bar baz ->
-  element [bar, baz]
+  Gen.choice @Gen
+    [ bar <$> Gen.bool_ <*> Gen.double (Range.linearFrac 0.0 1.0)
+    , baz <$> Gen.int (Range.linear (-100) 100)
+    ]
 ```
 
 when we decide to add `Qux`:
 
 ```diff
-- data Foo = Bar | Baz
-+ data Foo = Bar | Baz | Qux
+- data Foo = Bar Bool Double | Baz Int
++ data Foo = Bar Bool Double | Baz Int | Qux Char
 ```
 
 the type of `constructors @Foo` will have changed, so the compiler will
@@ -75,31 +84,47 @@ of the constructor. Continuing with the previous example, we can write:
 ```haskell
 module MyData.Gen
 
-import Constructors.Tagged (constructors)
-import Data.Tagged (untag)
+import qualified Constructors.Tagged as Tagged (constructors)
+import           Data.Tagged         (untag)
+
+import           Hedgehog       (Gen)
+import qualified Hedgehog.Gen   as Gen
+import qualified Hedgehog.Range as Range
 
 genFoo :: Gen Foo
-genFoo = constructors @Foo
+genFoo = Tagged.constructors @Foo
   \(untag @"Bar" -> bar) ->
   \(untag @"Baz" -> baz) ->
-    element [bar, baz]
+    Gen.choice @Gen
+      [ bar <$> Gen.bool_ <*> Gen.double (Range.linearFrac 0.0 1.0)
+      , baz <$> Gen.int (Range.linear (-100) 100)
+      ]
 ```
 
 This way, when the eventual addition of `Qux` comes along,
 
 ```diff
-- data Foo = Bar | Baz
-+ data Foo = Bar | Baz | Qux
+- data Foo = Bar Bool Double | Baz Int
++ data Foo = Bar Bool Double | Baz Int | Qux Char
 ```
 
 the compiler will give a better error message:
 
 ```
 <loc>: error:
-    • Couldn't match type ‘[Foo]’ with ‘Tagged "Qux" Foo -> [Foo]’
-      Expected type: Constructors.Tagged.Q (Rep Foo) Foo [Foo]
-        Actual type: Tagged "Bar" Foo -> Tagged "Baz" Foo -> [Foo]
+    • Couldn't match type ‘Gen Foo’
+                     with ‘Tagged "Qux" (Char -> Foo)
+                           -> Gen Foo’
+      Expected type: Constructors.Tagged.Q (Rep Foo) Foo (Gen Foo)
+        Actual type: Tagged "Bar" (Bool -> Double -> Foo)
+                     -> Tagged "Baz" (Int -> Foo)
+                     -> Gen Foo
 ...
 ```
 
 So it will be clear that the `Qux` constructor is what's missing.
+
+# Notes
+
+I had to guide the compiler a bit with the type application on `Gen.choice`;
+otherwise the error message wouldn't be quite as clear due to its overloading.

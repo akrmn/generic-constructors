@@ -26,6 +26,9 @@ data Either4 a b c d
 listConstructors :: forall a x. ([a] -> (a -> [a] -> [a]) -> x) -> x
 listConstructors = constructors @[a]
 
+data Foo = Bar Bool Double | Baz Int
+  deriving (Generic, Show)
+
 main :: IO ()
 main = do
   constructors @(Int, Bool) \tup ->
@@ -42,6 +45,9 @@ main = do
 
   constructors @(Either4 Int Bool Char Double) \e1 e2 e3 e4 ->
     print [e1 3, e2 False, e3 'a', e4 3.14]
+
+  constructors @Foo \bar baz ->
+    print [bar True 6.02e23, bar False 0.1, baz (-5), baz 3]
 
   Tagged.constructors @(Int, Bool)
     \(untag @"(,)" -> tup) ->
@@ -68,3 +74,8 @@ main = do
     \(untag @"E4_3" -> e3) ->
     \(untag @"E4_4" -> e4) ->
       print [e1 3, e2 False, e3 'a', e4 3.14]
+
+  Tagged.constructors @Foo
+    \(untag @"Bar" -> bar) ->
+    \(untag @"Baz" -> baz) ->
+      print [bar True 6.02e23, bar False 0.1, baz (-5), baz 3]
